@@ -73,6 +73,27 @@ type RevocationEntry struct {
 	RevokedBy  string    `json:"revoked_by"`  // UUID of the issuer sigil
 }
 
+// SessionType classifies who owns a session for TTL purposes.
+type SessionType string
+
+const (
+	SessionTypeOperator SessionType = "operator" // 7 days
+	SessionTypeCLI      SessionType = "cli"      // 1 hour
+	SessionTypeWeb      SessionType = "web"      // 30 minutes
+)
+
+// Session is a broker-managed session blob persisted in Valkey (primary)
+// and Postgres (audit mirror). The JSON blob carries whatever the broker
+// needs for session state — for v0.1 this is the Sigil ID + scope grants.
+type Session struct {
+	ID        string            `json:"id"`         // UUID
+	SigilID   string            `json:"sigil_id"`   // owning Sigil UUID
+	Type      SessionType       `json:"type"`       // operator | cli | web
+	Payload   map[string]string `json:"payload"`    // opaque key-value blob
+	CreatedAt time.Time         `json:"created_at"`
+	ExpiresAt time.Time         `json:"expires_at"`
+}
+
 // VerifyError represents a structured denial from the broker.
 type VerifyError struct {
 	Code    string `json:"code"`             // e.g. "capability_expired"
