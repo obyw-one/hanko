@@ -83,8 +83,8 @@ type Config struct {
 
 // Provider is the in-process OIDC provider façade.
 type Provider struct {
-	cfg      Config
-	registry *ProviderConfig
+	cfg        Config
+	registry   *ProviderConfig
 	registryMu sync.RWMutex
 
 	kid string
