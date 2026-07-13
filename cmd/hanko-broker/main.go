@@ -417,7 +417,7 @@ Commands:
 
   list sigils  List all stored Sigils (JSON array).
 
-  serve        Run HTTP server (W2 Phase 1 + 2).
+  serve        Run HTTP server (W2 Phase 1 + 2 + W6.2b OIDC provider).
                Flags:
                  --addr <host:port>         default 127.0.0.1:8788 (Tailscale-only)
                  --oidc-policy <path>       JSON policy file (env: HANKO_OIDC_POLICY_PATH)
@@ -425,12 +425,27 @@ Commands:
                  --oidc-audience <aud>      expected aud claim (env: HANKO_OIDC_AUDIENCE)
                  --oidc-issuers <pairs>     "issuer=jwksURL,issuer=jwksURL"
                                             (env: HANKO_OIDC_ISSUERS)
-                                            Empty → OIDC endpoint disabled.
+                                            Empty → OIDC bootstrap endpoint disabled.
+                 --oidcp-issuer <url>       OIDC provider issuer URL
+                                            (env: HANKO_OIDCP_ISSUER)
+                                            e.g. http://100.64.0.2:8788
+                                            Empty → OIDC provider façade disabled.
+                 --oidcp-config <path>      Clients + users JSON file
+                                            (env: HANKO_OIDCP_CONFIG_PATH)
+                 --oidcp-audit <path>       JSONL audit append-file
+                                            (env: HANKO_OIDCP_AUDIT_PATH)
+                 --oidcp-cookie-secure      Set Secure flag on session cookie
+                                            (env: HANKO_OIDCP_COOKIE_SECURE=1)
                Public routes (safe for Caddy reverse-proxy):
                  GET  /api/v1/jwks
                  GET  /.well-known/jwks.json
                  GET  /healthz
                  POST /api/v1/sigils/bootstrap-oidc  (when --oidc-issuers set)
+                 GET  /.well-known/openid-configuration (when --oidcp-issuer set)
+                 GET  /api/v1/oidc/authorize
+                 POST /api/v1/oidc/login
+                 POST /api/v1/oidc/token
+                 GET  /api/v1/oidc/userinfo
                Admin routes (never proxy publicly):
                  (none yet)
 

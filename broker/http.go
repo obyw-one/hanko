@@ -97,6 +97,42 @@ func (s *HTTPServer) AttachOIDC(oidc *OIDCBootstrap) error {
 	return nil
 }
 
+// OIDCProviderHandlers is the minimal interface the OIDC provider façade
+// exposes to the HTTP server. Defined here (not by importing the
+// oidcprovider package) so the broker package retains a clean dependency
+// direction — oidcprovider imports nothing from broker.
+type OIDCProviderHandlers interface {
+	HandleDiscovery(w http.ResponseWriter, r *http.Request)
+	HandleAuthorize(w http.ResponseWriter, r *http.Request)
+	HandleLogin(w http.ResponseWriter, r *http.Request)
+	HandleToken(w http.ResponseWriter, r *http.Request)
+	HandleUserInfo(w http.ResponseWriter, r *http.Request)
+}
+
+// AttachOIDCProvider wires the OIDC provider façade (spec W6.2b) endpoints
+// onto the existing mux:
+//
+//	GET  /.well-known/openid-configuration
+//	GET  /api/v1/oidc/authorize
+//	POST /api/v1/oidc/login
+//	POST /api/v1/oidc/token
+//	GET  /api/v1/oidc/userinfo
+//
+// All routes are safe for public exposure via the Tailscale-only listener
+// (the login form is HTML; the rest are JSON APIs). Reuses the existing
+// /api/v1/jwks endpoint for id_token verification.
+func (s *HTTPServer) AttachOIDCProvider(p OIDCProviderHandlers) error {
+	if p == nil {
+		return fmt.Errorf("hanko: AttachOIDCProvider: provider must not be nil")
+	}
+	s.mux.HandleFunc("/.well-known/openid-configuration", p.HandleDiscovery)
+	s.mux.HandleFunc("/api/v1/oidc/authorize", p.HandleAuthorize)
+	s.mux.HandleFunc("/api/v1/oidc/login", p.HandleLogin)
+	s.mux.HandleFunc("/api/v1/oidc/token", p.HandleToken)
+	s.mux.HandleFunc("/api/v1/oidc/userinfo", p.HandleUserInfo)
+	return nil
+}
+
 // Handler exposes the HTTP handler tree to the caller (e.g. http.Server
 // or a wrapping middleware chain). Returned handler is safe for
 // concurrent use.

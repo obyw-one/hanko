@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/FJ-Studios/hanko/broker"
+	"github.com/FJ-Studios/hanko/broker/oidcprovider"
 	"github.com/FJ-Studios/hanko/internal/observability"
 )
 
@@ -42,6 +43,13 @@ func runServe(args []string, storeFlag string) {
 	}
 	workspaceID := os.Getenv("SHIKKI_WORKSPACE_ID")
 
+	// W6.2b — hanko-broker OIDC provider façade. Empty CONFIG_PATH keeps
+	// the provider disabled (JWKS + healthz + bootstrap-oidc only).
+	oidcpConfig := os.Getenv("HANKO_OIDCP_CONFIG_PATH")
+	oidcpIssuer := os.Getenv("HANKO_OIDCP_ISSUER")
+	oidcpAudit := os.Getenv("HANKO_OIDCP_AUDIT_PATH")
+	oidcpCookieSecure := os.Getenv("HANKO_OIDCP_COOKIE_SECURE") == "1"
+
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--addr":
@@ -54,6 +62,14 @@ func runServe(args []string, storeFlag string) {
 			oidcAudience = nextArg(args, &i, "--oidc-audience")
 		case "--oidc-issuers":
 			oidcIssuers = nextArg(args, &i, "--oidc-issuers")
+		case "--oidcp-config":
+			oidcpConfig = nextArg(args, &i, "--oidcp-config")
+		case "--oidcp-issuer":
+			oidcpIssuer = nextArg(args, &i, "--oidcp-issuer")
+		case "--oidcp-audit":
+			oidcpAudit = nextArg(args, &i, "--oidcp-audit")
+		case "--oidcp-cookie-secure":
+			oidcpCookieSecure = true
 		default:
 			die("serve: unknown flag %q", args[i])
 		}
@@ -154,6 +170,33 @@ func runServe(args []string, storeFlag string) {
 		}
 		fmt.Fprintf(os.Stderr, "hanko-broker: OIDC bootstrap enabled (policy=%s rows=%d audience=%s)\n",
 			oidcPolicy, policy.Len(), oidcAudience)
+	}
+
+	// Wire OIDC provider façade (W6.2b) iff --oidcp-issuer is set.
+	// Without an explicit issuer URL the discovery document cannot be
+	// correct, so fail-closed by disabling the endpoint entirely.
+	if oidcpIssuer != "" {
+		cfg, err := oidcprovider.LoadProviderConfig(oidcpConfig)
+		if err != nil {
+			die("serve: --oidcp-config: %v", err)
+		}
+		prov, err := oidcprovider.New(oidcprovider.Config{
+			Issuer:       oidcpIssuer,
+			SignerPriv:   priv,
+			SignerPub:    pub,
+			Registry:     cfg,
+			AuditPath:    oidcpAudit,
+			CookieSecure: oidcpCookieSecure,
+		})
+		if err != nil {
+			die("serve: oidc provider: %v", err)
+		}
+		if err := hs.AttachOIDCProvider(prov); err != nil {
+			die("serve: attach oidc provider: %v", err)
+		}
+		fmt.Fprintf(os.Stderr,
+			"hanko-broker: OIDC provider façade enabled (issuer=%s clients=%d users=%d)\n",
+			oidcpIssuer, len(cfg.Clients), len(cfg.Users))
 	}
 
 	srv := &http.Server{
