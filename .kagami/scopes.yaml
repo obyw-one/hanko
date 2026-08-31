@@ -1,6 +1,14 @@
-# Kagami test scopes for hanko-broker (W6.11).
-# Go scope — the repo's canonical runner is `go test ./...` (see .github/workflows/test.yml).
+# Kagami test scopes for hanko (Go module).
+# Canonical runner: `go test ./...` (see .github/workflows/test.yml).
+# Module-wide scope covers every package incl. broker/oidcprovider/ (W6.2b
+# OIDC façade) — fixes the 2026-07-14 pre-pr Go-file scope-miss.
 scopes:
+  - name: HankoModule
+    language: go
+    expected_test_min: 1
+    test_command: "go test -timeout 300s ./..."
+    paths:
+      - "./..."
   - name: HankoBrokerNATSPublishW6_11
     language: go
     expected_test_min: 7
