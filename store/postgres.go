@@ -30,6 +30,9 @@ import (
 //go:embed migrations_sql/001_initial.sql
 var migrationSQL string
 
+//go:embed migrations_sql/002_sessions.sql
+var migrationSessionsSQL string
+
 // PgStore is a Postgres-backed implementation of broker.Store.
 // Obtain one via NewPgStore; call Close when done.
 type PgStore struct {
@@ -68,10 +71,15 @@ func (p *PgStore) Close() {
 	p.pool.Close()
 }
 
-// migrate runs the embedded SQL migration idempotently.
+// migrate runs embedded SQL migrations idempotently.
 func (p *PgStore) migrate(ctx context.Context) error {
-	_, err := p.pool.Exec(ctx, migrationSQL)
-	return err
+	if _, err := p.pool.Exec(ctx, migrationSQL); err != nil {
+		return fmt.Errorf("migration 001: %w", err)
+	}
+	if _, err := p.pool.Exec(ctx, migrationSessionsSQL); err != nil {
+		return fmt.Errorf("migration 002: %w", err)
+	}
+	return nil
 }
 
 // --- Store interface implementation ---
